@@ -14,7 +14,13 @@ import torch
 from torch import _C
 
 from torch.types import Device
-from . import _get_device_index, _get_nvml_device_index, _lazy_init, is_initialized
+from . import (
+    _get_amdsmi_device_index,
+    _get_device_index,
+    _get_nvml_device_index,
+    _lazy_init,
+    is_initialized,
+)
 
 from ._memory_viz import memory as _memory, segments as _segments
 from ._utils import _dummy_type
@@ -614,26 +620,48 @@ def list_gpu_processes(device: Union[Device, int] = None) -> str:
             printout for the current device, given by :func:`~torch.cuda.current_device`,
             if :attr:`device` is ``None`` (default).
     """
-    try:
-        import pynvml  # type: ignore[import]
-    except ModuleNotFoundError:
-        return "pynvml module not found, please install pynvml"
-    from pynvml import NVMLError_DriverNotLoaded
+    if not torch.version.hip:
+        try:
+            import pynvml  # type: ignore[import]
+        except ModuleNotFoundError:
+            return "pynvml module not found, please install pynvml"
+        from pynvml import NVMLError_DriverNotLoaded
 
-    try:
-        pynvml.nvmlInit()
-    except NVMLError_DriverNotLoaded:
-        return "cuda driver can't be loaded, is cuda enabled?"
-    device = _get_nvml_device_index(device)
-    handle = pynvml.nvmlDeviceGetHandleByIndex(device)
-    procs = pynvml.nvmlDeviceGetComputeRunningProcesses(handle)
+        try:
+            pynvml.nvmlInit()
+        except NVMLError_DriverNotLoaded:
+            return "cuda driver can't be loaded, is cuda enabled?"
+
+        device = _get_nvml_device_index(device)
+        handle = pynvml.nvmlDeviceGetHandleByIndex(device)
+        procs = pynvml.nvmlDeviceGetComputeRunningProcesses(handle)
+    else:
+        try:
+            import amdsmi as pyamdsmi  # type: ignore[import]
+        except ModuleNotFoundError:
+            return "amdsmi module not found, please install amdsmi"
+        try:
+            pyamdsmi.amdsmi_init(pyamdsmi.AmdSmiInitFlags.INIT_AMD_GPUS)
+        except:
+            return "amdsmi driver can't be loaded"
+
+        device = _get_amdsmi_device_index(device)
+        handle = pyamdsmi.amdsmi_get_processor_handles()[device]
+        procs = pyamdsmi.amdsmi_get_gpu_process_list(handle)
+
     lines = []
     lines.append(f"GPU:{device}")
     if len(procs) == 0:
         lines.append("no processes are running")
     for p in procs:
-        mem = p.usedGpuMemory / (1024 * 1024)
-        lines.append(f"process {p.pid:>10d} uses {mem:>12.3f} MB GPU memory")
+        if not torch.version.hip:
+            mem = p.usedGpuMemory / (1024 * 1024)
+            pid = p.pid
+        else:
+            proc_info = pyamdsmi.amdsmi_get_gpu_process_info(handle, p)
+            mem = proc_info["memory_usage"]["vram_mem"] / (1024 * 1024)
+            pid = proc_info["pid"]
+        lines.append(f"process {pid:>10d} uses {mem:>12.3f} MB GPU memory")
     return "\n".join(lines)
 
 
