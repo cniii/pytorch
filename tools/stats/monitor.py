@@ -82,10 +82,13 @@ if __name__ == "__main__":
         # no pynvml avaliable, probably because not cuda
         pass
     try:
-        import amdsmi as pyamdsmi
+        import amdsmi as pyamdsmi  # type: ignore[import]
+
         pyamdsmi.amdsmi_init()
         amdsmi_handle = pyamdsmi.amdsmi_get_processor_handles()[0]
-        amdsmi_tot_vram = pyamdsmi.amdsmi_get_gpu_memory_total(amdsmi_handle, pyamdsmi.AmdSmiMemoryType.VRAM)
+        amdsmi_tot_vram = pyamdsmi.amdsmi_get_gpu_memory_total(
+            amdsmi_handle, pyamdsmi.AmdSmiMemoryType.VRAM
+        )
     except ModuleNotFoundError:
         pass
 
@@ -111,10 +114,18 @@ if __name__ == "__main__":
                 stats["total_gpu_utilization"] = gpu_utilization.gpu
                 stats["total_gpu_mem_utilization"] = gpu_utilization.memory
             if amdsmi_handle is not None:
-                stats["per_process_gpu_info"] = rocm_get_per_process_gpu_info(amdsmi_handle) 
-                stats["total_gpu_utilization"] = pyamdsmi.amdsmi_get_gpu_activity(amdsmi_handle)["gfx_activity"]
-                memory_used = pyamdsmi.amdsmi_get_gpu_memory_usage(amdsmi_handle, pyamdsmi.AmdSmiMemoryType.VRAM)
-                stats["total_gpu_mem_utilization"] = math.floor((memory_used/amdsmi_tot_vram)*100)
+                stats["per_process_gpu_info"] = rocm_get_per_process_gpu_info(
+                    amdsmi_handle
+                )
+                stats["total_gpu_utilization"] = pyamdsmi.amdsmi_get_gpu_activity(
+                    amdsmi_handle
+                )["gfx_activity"]
+                memory_used = pyamdsmi.amdsmi_get_gpu_memory_usage(
+                    amdsmi_handle, pyamdsmi.AmdSmiMemoryType.VRAM
+                )
+                stats["total_gpu_mem_utilization"] = math.floor(
+                    (memory_used / amdsmi_tot_vram) * 100
+                )
         except Exception as e:
             stats = {
                 "time": datetime.datetime.utcnow().isoformat("T") + "Z",

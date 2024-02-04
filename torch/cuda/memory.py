@@ -642,8 +642,8 @@ def list_gpu_processes(device: Union[Device, int] = None) -> str:
             return "amdsmi module not found, please install amdsmi"
         try:
             pyamdsmi.amdsmi_init(pyamdsmi.AmdSmiInitFlags.INIT_AMD_GPUS)
-        except:
-            return "amdsmi driver can't be loaded"
+        except pyamdsmi.AmdSmiException:
+            return "amdsmi driver can't be loaded, is ROCm installed?"
 
         device = _get_amdsmi_device_index(device)
         handle = pyamdsmi.amdsmi_get_processor_handles()[device]

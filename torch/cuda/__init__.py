@@ -590,7 +590,11 @@ def set_stream(stream: Stream):
 
 def _parse_visible_devices() -> Union[List[int], List[str]]:
     r"""Parse CUDA_VISIBLE_DEVICES environment variable."""
-    var = os.getenv("HIP_VISIBLE_DEVICES")
+    var = (
+        os.getenv("CUDA_VISIBLE_DEVICES")
+        if not torch.version.hip
+        else os.getenv("HIP_VISBILE_DEVICES")
+    )
     if var is None:
         return list(range(64))
 
@@ -639,8 +643,9 @@ def _parse_visible_devices() -> Union[List[int], List[str]]:
 def _raw_device_count_amdsmi() -> int:
     try:
         pyamdsmi.amdsmi_init()
-    except:
-        warnings.warn("Can't initialize pyamdsmi")
+    except pyamdsmi.AmdSmiException as e:
+        warnings.warn(f"Can't initialize pyamdsmi - Error code: {e.err_code}")
+        return -1
     socket_handles = pyamdsmi.amdsmi_get_processor_handles()
     return len(socket_handles)
 
@@ -664,36 +669,32 @@ def _raw_device_count_nvml() -> int:
 
 
 def _raw_device_uuid_amdsmi() -> Optional[List[str]]:
-    import ctypes
     from ctypes import byref, c_int, c_void_p, CDLL, create_string_buffer
 
     try:
-        pyamdsmi.amdsmi_init(pyamdsmi.AmdSmiInitFlags.INIT_AMD_GPUS)
-    except:
+        pyamdsmi.amdsmi_init()
+    except pyamdsmi.AmdSmiException:
         warnings.warn("Can't initialize amdsmi")
-
+        return None
     try:
         socket_handles = pyamdsmi.amdsmi_get_processor_handles()
         dev_count = len(socket_handles)
-        print(f"dev_count: {dev_count}")
-    except:
+    except pyamdsmi.AmdSmiException:
         warnings.warn("Can't get amdsmi device count")
-
+        return None
     uuids: List[str] = []
     for idx in range(dev_count):
         try:
             handler = pyamdsmi.amdsmi_get_processor_handles()[idx]
-        except:
+        except pyamdsmi.AmdSmiException:
             warnings.warn("Cannot get amd device handler")
+            return None
         try:
             uuid = pyamdsmi.amdsmi_get_gpu_device_uuid(handler)
-        except:
+        except pyamdsmi.AmdSmiException:
             warnings.warn("Cannot get uuid for amd device")
-        try:
-            bdf = pyamdsmi.amdsmi_get_gpu_device_bdf(handler)
-        except:
-            warnings.warn("Cannot get bdf of amd device")
-        uuids.append(str(bdf))
+            return None
+        uuids.append(str(uuid))
     return uuids
 
 
@@ -996,8 +997,8 @@ def _get_amdsmi_handler(device: Optional[Union[Device, int]] = None):
         ) from _PYNVML_ERR
     try:
         pyamdsmi.amdsmi_init()
-    except:
-        raise RuntimeError("amdsmi driver can't be loaded, is cuda enabled?")
+    except pyamdsmi.AmdSmiException as e:
+        raise RuntimeError("amdsmi driver can't be loaded, is ROCm installed?") from e
     device = _get_amdsmi_device_index(device)
     handle = pyamdsmi.amdsmi_get_processor_handles()[device]
     return handle
@@ -1012,7 +1013,7 @@ def _get_amdsmi_device_index(device: Optional[Union[int, Device]]) -> int:
     idx_map = dict(enumerate(cast(List[int], visible_devices)))
     if idx not in idx_map:
         raise RuntimeError(
-            f"device {idx} is not visible (CUDA_VISIBLE_DEVICES={visible_devices})"
+            f"device {idx} is not visible (HIP_VISIBLE_DEVICES={visible_devices})"
         )
     return idx_map[idx]
 
@@ -1020,15 +1021,14 @@ def _get_amdsmi_device_index(device: Optional[Union[int, Device]]) -> int:
 def _get_amdsmi_memory_usage(device: Optional[Union[Device, int]] = None) -> int:
     handle = _get_amdsmi_handler()
     device = _get_amdsmi_device_index(device)
-    handle = pyamdsmi.amdsmi_get_processor_handles()[device]
-    return(pyamdsmi.amdsmi_get_gpu_activity(handle)["umc_activity"])
+    return pyamdsmi.amdsmi_get_gpu_vram_usage(handle)["vram_used"]
 
 
 def _get_amdsmi_utilization(device: Optional[Union[Device, int]] = None) -> int:
     handle = _get_amdsmi_handler()
     device = _get_amdsmi_device_index(device)
     handle = pyamdsmi.amdsmi_get_processor_handles()[device]
-    return(pyamdsmi.amdsmi_get_gpu_activity(handle)["gfx_activity"])
+    return pyamdsmi.amdsmi_get_gpu_activity(handle)["gfx_activity"]
 
 
 def _get_amdsmi_temperature(device: Optional[Union[Device, int]] = None) -> int:
