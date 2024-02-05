@@ -2,4 +2,4 @@
 
 set -ex
 
-cd /opt/rocm/shared/amd_smi && pip install .
+cd /opt/rocm/share/amd_smi && pip install .
