@@ -7,7 +7,6 @@ import time
 from typing import Any, Dict, List
 
 import psutil  # type: ignore[import]
-import pynvml  # type: ignore[import]
 
 
 def get_processes_running_python_tests() -> List[Any]:
@@ -76,19 +75,27 @@ def rocm_get_per_process_gpu_info(handle: Any) -> List[Dict[str, Any]]:
 if __name__ == "__main__":
     handle = None
     try:
-        pynvml.nvmlInit()
-        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-    except pynvml.NVMLError:
+        import pynvml  # type: ignore[import]
+
+        try:
+            pynvml.nvmlInit()
+            handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        except pynvml.NVMLError:
+            pass
+    except ModuleNotFoundError:
         # no pynvml avaliable, probably because not cuda
         pass
     try:
         import amdsmi as pyamdsmi  # type: ignore[import]
 
-        pyamdsmi.amdsmi_init()
-        amdsmi_handle = pyamdsmi.amdsmi_get_processor_handles()[0]
-        amdsmi_tot_vram = pyamdsmi.amdsmi_get_gpu_memory_total(
-            amdsmi_handle, pyamdsmi.AmdSmiMemoryType.VRAM
-        )
+        try:
+            pyamdsmi.amdsmi_init()
+            amdsmi_handle = pyamdsmi.amdsmi_get_processor_handles()[0]
+            amdsmi_tot_vram = pyamdsmi.amdsmi_get_gpu_memory_total(
+                amdsmi_handle, pyamdsmi.AmdSmiMemoryType.VRAM
+            )
+        except pyamdsmi.AmdSmiException:
+            pass
     except ModuleNotFoundError:
         pass
 
