@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <iosfwd>
+#include <limits>
 #include <string>
 
 namespace c10 {
@@ -16,7 +17,10 @@ namespace c10 {
 /// A DeviceIndex is not independently meaningful without knowing
 /// the DeviceType it is associated; try to use Device rather than
 /// DeviceIndex directly.
-using DeviceIndex = int8_t;
+using DeviceIndex = int16_t;
+
+/// The last, still valid device index
+constexpr int64_t MAX_DEVICE_INDEX = std::numeric_limits<DeviceIndex>::max();
 
 /// Represents a compute device on which a tensor is located. A device is
 /// uniquely identified by a type, which specifies the type of machine it is
@@ -196,7 +200,7 @@ struct hash<c10::Device> {
     // Are you here because this static assert failed?  Make sure you ensure
     // that the bitmasking code below is updated accordingly!
     static_assert(sizeof(c10::DeviceType) == 1, "DeviceType is not 8-bit");
-    static_assert(sizeof(c10::DeviceIndex) == 1, "DeviceIndex is not 8-bit");
+    static_assert(sizeof(c10::DeviceIndex) == 2, "DeviceIndex is not 16-bit");
     // Note [Hazard when concatenating signed integers]
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // We must first convert to a same-sized unsigned type, before promoting to
@@ -209,7 +213,7 @@ struct hash<c10::Device> {
     // sake.
     uint32_t bits = static_cast<uint32_t>(static_cast<uint8_t>(d.type()))
             << 16 |
-        static_cast<uint32_t>(static_cast<uint8_t>(d.index()));
+        static_cast<uint32_t>(static_cast<uint16_t>(d.index()));
     return std::hash<uint32_t>{}(bits);
   }
 };
