@@ -593,7 +593,7 @@ def _parse_visible_devices() -> Union[List[int], List[str]]:
     var = (
         os.getenv("CUDA_VISIBLE_DEVICES")
         if not torch.version.hip
-        else os.getenv("HIP_VISBILE_DEVICES")
+        else os.getenv("HIP_VISIBLE_DEVICES")
     )
     if var is None:
         return list(range(64))
