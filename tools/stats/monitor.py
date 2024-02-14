@@ -79,7 +79,6 @@ if __name__ == "__main__":
         pynvml.nvmlInit()
         handle = pynvml.nvmlDeviceGetHandleByIndex(0)
     except (ModuleNotFoundError, pynvml.NVMLError):
-        pass
         # no pynvml avaliable, probably because not cuda
         pass
     try:
