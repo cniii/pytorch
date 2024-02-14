@@ -76,13 +76,10 @@ if __name__ == "__main__":
     handle = None
     try:
         import pynvml  # type: ignore[import]
-
-        try:
-            pynvml.nvmlInit()
-            handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-        except pynvml.NVMLError:
-            pass
-    except ModuleNotFoundError:
+        pynvml.nvmlInit()
+        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+    except (ModuleNotFoundError, pynvml.NVMLError):
+        pass
         # no pynvml avaliable, probably because not cuda
         pass
     try:
