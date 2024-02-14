@@ -84,16 +84,12 @@ if __name__ == "__main__":
         pass
     try:
         import amdsmi as pyamdsmi  # type: ignore[import]
-
-        try:
-            pyamdsmi.amdsmi_init()
-            amdsmi_handle = pyamdsmi.amdsmi_get_processor_handles()[0]
-            amdsmi_tot_vram = pyamdsmi.amdsmi_get_gpu_memory_total(
-                amdsmi_handle, pyamdsmi.AmdSmiMemoryType.VRAM
-            )
-        except pyamdsmi.AmdSmiException:
-            pass
-    except ModuleNotFoundError:
+        pyamdsmi.amdsmi_init()
+        amdsmi_handle = pyamdsmi.amdsmi_get_processor_handles()[0]
+        amdsmi_tot_vram = pyamdsmi.amdsmi_get_gpu_memory_total(
+            amdsmi_handle, pyamdsmi.AmdSmiMemoryType.VRAM
+        )
+    except (ModuleNotFoundError, pyamdsmi.AmdSmiException):
         pass
 
     kill_now = False
