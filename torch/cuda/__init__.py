@@ -53,11 +53,18 @@ _device_t = Union[_device, str, int, None]
 _HAS_PYNVML = False
 _PYNVML_ERR = None
 try:
-    if not torch.version.hip:
+    try:
         import pynvml  # type: ignore[import]
-    else:
-        import amdsmi as pyamdsmi  # type: ignore[import]
-    _HAS_PYNVML = True
+
+        _HAS_PYNVML = True
+    except ModuleNotFoundError:
+        pass
+    try:
+        import amdsmi  # type: ignore[import]
+
+        _HAS_PYNVML = True
+    except ModuleNotFoundError:
+        pass
 except ImportError as err:
     _PYNVML_ERR = err  # sometimes a lib is installed but the import fails for some other reason, so we log the error for later
 
@@ -642,11 +649,11 @@ def _parse_visible_devices() -> Union[List[int], List[str]]:
 
 def _raw_device_count_amdsmi() -> int:
     try:
-        pyamdsmi.amdsmi_init()
-    except pyamdsmi.AmdSmiException as e:
-        warnings.warn(f"Can't initialize pyamdsmi - Error code: {e.err_code}")
+        amdsmi.amdsmi_init()
+    except amdsmi.AmdSmiException as e:
+        warnings.warn(f"Can't initialize amdsmi - Error code: {e.err_code}")
         return -1
-    socket_handles = pyamdsmi.amdsmi_get_processor_handles()
+    socket_handles = amdsmi.amdsmi_get_processor_handles()
     return len(socket_handles)
 
 
@@ -672,26 +679,26 @@ def _raw_device_uuid_amdsmi() -> Optional[List[str]]:
     from ctypes import byref, c_int, c_void_p, CDLL, create_string_buffer
 
     try:
-        pyamdsmi.amdsmi_init()
-    except pyamdsmi.AmdSmiException:
+        amdsmi.amdsmi_init()
+    except amdsmi.AmdSmiException:
         warnings.warn("Can't initialize amdsmi")
         return None
     try:
-        socket_handles = pyamdsmi.amdsmi_get_processor_handles()
+        socket_handles = amdsmi.amdsmi_get_processor_handles()
         dev_count = len(socket_handles)
-    except pyamdsmi.AmdSmiException:
+    except amdsmi.AmdSmiException:
         warnings.warn("Can't get amdsmi device count")
         return None
     uuids: List[str] = []
     for idx in range(dev_count):
         try:
-            handler = pyamdsmi.amdsmi_get_processor_handles()[idx]
-        except pyamdsmi.AmdSmiException:
+            handler = amdsmi.amdsmi_get_processor_handles()[idx]
+        except amdsmi.AmdSmiException:
             warnings.warn("Cannot get amd device handler")
             return None
         try:
-            uuid = pyamdsmi.amdsmi_get_gpu_device_uuid(handler)
-        except pyamdsmi.AmdSmiException:
+            uuid = amdsmi.amdsmi_get_gpu_device_uuid(handler)
+        except amdsmi.AmdSmiException:
             warnings.warn("Cannot get uuid for amd device")
             return None
         uuids.append(str(uuid))
@@ -996,11 +1003,11 @@ def _get_amdsmi_handler(device: Optional[Union[Device, int]] = None):
             "amdsmi does not seem to be installed or it can't be imported."
         ) from _PYNVML_ERR
     try:
-        pyamdsmi.amdsmi_init()
-    except pyamdsmi.AmdSmiException as e:
+        amdsmi.amdsmi_init()
+    except amdsmi.AmdSmiException as e:
         raise RuntimeError("amdsmi driver can't be loaded, is ROCm installed?") from e
     device = _get_amdsmi_device_index(device)
-    handle = pyamdsmi.amdsmi_get_processor_handles()[device]
+    handle = amdsmi.amdsmi_get_processor_handles()[device]
     return handle
 
 
@@ -1021,33 +1028,33 @@ def _get_amdsmi_device_index(device: Optional[Union[int, Device]]) -> int:
 def _get_amdsmi_memory_usage(device: Optional[Union[Device, int]] = None) -> int:
     handle = _get_amdsmi_handler()
     device = _get_amdsmi_device_index(device)
-    return pyamdsmi.amdsmi_get_gpu_vram_usage(handle)["vram_used"]
+    return amdsmi.amdsmi_get_gpu_vram_usage(handle)["vram_used"]
 
 
 def _get_amdsmi_utilization(device: Optional[Union[Device, int]] = None) -> int:
     handle = _get_amdsmi_handler()
     device = _get_amdsmi_device_index(device)
-    handle = pyamdsmi.amdsmi_get_processor_handles()[device]
-    return pyamdsmi.amdsmi_get_gpu_activity(handle)["gfx_activity"]
+    handle = amdsmi.amdsmi_get_processor_handles()[device]
+    return amdsmi.amdsmi_get_gpu_activity(handle)["gfx_activity"]
 
 
 def _get_amdsmi_temperature(device: Optional[Union[Device, int]] = None) -> int:
     handle = _get_amdsmi_handler(device)
-    return pyamdsmi.amdsmi_get_temp_metric(
+    return amdsmi.amdsmi_get_temp_metric(
         handle,
-        pyamdsmi.AmdSmiTemperatureType.JUNCTION,
-        pyamdsmi.AmdSmiTemperatureMetric.CURRENT,
+        amdsmi.AmdSmiTemperatureType.JUNCTION,
+        amdsmi.AmdSmiTemperatureMetric.CURRENT,
     )
 
 
 def _get_amdsmi_power_draw(device: Optional[Union[Device, int]] = None) -> int:
     handle = _get_amdsmi_handler(device)
-    return pyamdsmi.amdsmi_get_power_info(handle)["average_socket_power"]
+    return amdsmi.amdsmi_get_power_info(handle)["average_socket_power"]
 
 
 def _get_amdsmi_clock_rate(device: Optional[Union[Device, int]] = None) -> int:
     handle = _get_amdsmi_handler(device)
-    return pyamdsmi.amdsmi_get_clock_info(handle, pyamdsmi.AmdSmiClkType.GFX)["cur_clk"]
+    return amdsmi.amdsmi_get_clock_info(handle, amdsmi.AmdSmiClkType.GFX)["cur_clk"]
 
 
 def memory_usage(device: Optional[Union[Device, int]] = None) -> int:

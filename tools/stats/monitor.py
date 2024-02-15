@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import datetime
 import json
-import math
 import signal
 import time
 from typing import Any, Dict, List
@@ -60,10 +59,10 @@ def get_per_process_gpu_info(handle: Any) -> List[Dict[str, Any]]:
 
 
 def rocm_get_per_process_gpu_info(handle: Any) -> List[Dict[str, Any]]:
-    processes = pyamdsmi.amdsmi_get_gpu_process_list(handle)
+    processes = amdsmi.amdsmi_get_gpu_process_list(handle)
     per_process_info = []
     for p in processes:
-        proc_info = pyamdsmi.amdsmi_get_gpu_process_info(handle, p)
+        proc_info = amdsmi.amdsmi_get_gpu_process_info(handle, p)
         info = {
             "pid": proc_info["pid"],
             "gpu_memory": proc_info["memory_usage"]["vram_mem"],
@@ -76,19 +75,25 @@ if __name__ == "__main__":
     handle = None
     try:
         import pynvml  # type: ignore[import]
-        pynvml.nvmlInit()
-        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-    except (ModuleNotFoundError, pynvml.NVMLError):
+
+        try:
+            pynvml.nvmlInit()
+            handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        except pynvml.NVMLError:
+            pass
+    except ModuleNotFoundError:
         # no pynvml avaliable, probably because not cuda
         pass
     try:
-        import amdsmi as pyamdsmi  # type: ignore[import]
-        pyamdsmi.amdsmi_init()
-        amdsmi_handle = pyamdsmi.amdsmi_get_processor_handles()[0]
-        amdsmi_tot_vram = pyamdsmi.amdsmi_get_gpu_memory_total(
-            amdsmi_handle, pyamdsmi.AmdSmiMemoryType.VRAM
-        )
-    except (ModuleNotFoundError, pyamdsmi.AmdSmiException):
+        import amdsmi  # type: ignore[import]
+
+        try:
+            amdsmi.amdsmi_init()
+            amdsmi_handle = amdsmi.amdsmi_get_processor_handles()[0]
+        except amdsmi.AmdSmiException:
+            pass
+    except ModuleNotFoundError:
+        # no amdsmi is available
         pass
 
     kill_now = False
@@ -116,15 +121,12 @@ if __name__ == "__main__":
                 stats["per_process_gpu_info"] = rocm_get_per_process_gpu_info(
                     amdsmi_handle
                 )
-                stats["total_gpu_utilization"] = pyamdsmi.amdsmi_get_gpu_activity(
+                stats["total_gpu_utilization"] = amdsmi.amdsmi_get_gpu_activity(
                     amdsmi_handle
                 )["gfx_activity"]
-                memory_used = pyamdsmi.amdsmi_get_gpu_memory_usage(
-                    amdsmi_handle, pyamdsmi.AmdSmiMemoryType.VRAM
-                )
-                stats["total_gpu_mem_utilization"] = math.floor(
-                    (memory_used / amdsmi_tot_vram) * 100
-                )
+                stats["total_gpu_mem_utilization"] = amdsmi.amdsmi_get_gpu_activity(
+                    amdsmi_handle
+                )["umc_activity"]
         except Exception as e:
             stats = {
                 "time": datetime.datetime.utcnow().isoformat("T") + "Z",

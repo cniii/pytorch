@@ -637,17 +637,17 @@ def list_gpu_processes(device: Union[Device, int] = None) -> str:
         procs = pynvml.nvmlDeviceGetComputeRunningProcesses(handle)
     else:
         try:
-            import amdsmi as pyamdsmi  # type: ignore[import]
+            import amdsmi  # type: ignore[import]
         except ModuleNotFoundError:
             return "amdsmi module not found, please install amdsmi"
         try:
-            pyamdsmi.amdsmi_init(pyamdsmi.AmdSmiInitFlags.INIT_AMD_GPUS)
-        except pyamdsmi.AmdSmiException:
+            amdsmi.amdsmi_init(amdsmi.AmdSmiInitFlags.INIT_AMD_GPUS)
+        except amdsmi.AmdSmiException:
             return "amdsmi driver can't be loaded, is ROCm installed?"
 
         device = _get_amdsmi_device_index(device)
-        handle = pyamdsmi.amdsmi_get_processor_handles()[device]
-        procs = pyamdsmi.amdsmi_get_gpu_process_list(handle)
+        handle = amdsmi.amdsmi_get_processor_handles()[device]
+        procs = amdsmi.amdsmi_get_gpu_process_list(handle)
 
     lines = []
     lines.append(f"GPU:{device}")
@@ -658,7 +658,7 @@ def list_gpu_processes(device: Union[Device, int] = None) -> str:
             mem = p.usedGpuMemory / (1024 * 1024)
             pid = p.pid
         else:
-            proc_info = pyamdsmi.amdsmi_get_gpu_process_info(handle, p)
+            proc_info = amdsmi.amdsmi_get_gpu_process_info(handle, p)
             mem = proc_info["memory_usage"]["vram_mem"] / (1024 * 1024)
             pid = proc_info["pid"]
         lines.append(f"process {pid:>10d} uses {mem:>12.3f} MB GPU memory")
