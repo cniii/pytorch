@@ -641,13 +641,13 @@ def list_gpu_processes(device: Union[Device, int] = None) -> str:
         except ModuleNotFoundError:
             return "amdsmi module not found, please install amdsmi"
         try:
-            amdsmi.amdsmi_init(amdsmi.AmdSmiInitFlags.INIT_AMD_GPUS)
-        except amdsmi.AmdSmiException:
+            amdsmi.amdsmi_init()  # type: ignore[attr-defined]
+        except amdsmi.AmdSmiException:  # type: ignore[attr-defined]
             return "amdsmi driver can't be loaded, is ROCm installed?"
 
         device = _get_amdsmi_device_index(device)
-        handle = amdsmi.amdsmi_get_processor_handles()[device]
-        procs = amdsmi.amdsmi_get_gpu_process_list(handle)
+        handle = amdsmi.amdsmi_get_processor_handles()[device]  # type: ignore[attr-defined]
+        procs = amdsmi.amdsmi_get_gpu_process_list(handle)  # type: ignore[attr-defined]
 
     lines = []
     lines.append(f"GPU:{device}")
@@ -658,7 +658,7 @@ def list_gpu_processes(device: Union[Device, int] = None) -> str:
             mem = p.usedGpuMemory / (1024 * 1024)
             pid = p.pid
         else:
-            proc_info = amdsmi.amdsmi_get_gpu_process_info(handle, p)
+            proc_info = amdsmi.amdsmi_get_gpu_process_info(handle, p)  # type: ignore[attr-defined]
             mem = proc_info["memory_usage"]["vram_mem"] / (1024 * 1024)
             pid = proc_info["pid"]
         lines.append(f"process {pid:>10d} uses {mem:>12.3f} MB GPU memory")
