@@ -658,7 +658,7 @@ def list_gpu_processes(device: Union[Device, int] = None) -> str:
             mem = p.usedGpuMemory / (1024 * 1024)
             pid = p.pid
         else:
-            proc_info = amdsmi.amdsmi_get_gpu_process_info(handle, p)  # type: ignore[attr-defined]
+            proc_info = amdsmi.amdsmi_get_gpu_process_info(handle, p)  # type: ignore[possibly-undefined]
             mem = proc_info["memory_usage"]["vram_mem"] / (1024 * 1024)
             pid = proc_info["pid"]
         lines.append(f"process {pid:>10d} uses {mem:>12.3f} MB GPU memory")
