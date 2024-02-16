@@ -19,8 +19,15 @@ namespace c10 {
 /// DeviceIndex directly.
 using DeviceIndex = int16_t;
 
-/// The last, still valid device index
-constexpr int64_t MAX_DEVICE_INDEX = std::numeric_limits<DeviceIndex>::max();
+// The number of valid device indices. Note that this does not include the
+// default device index -1, but instead defines the range from 0 to
+// C10_MAX_NUM_DEVICES - 1 inclusively.
+#define C10_MAX_NUM_DEVICES 512
+static_assert(
+    1 <= C10_MAX_NUM_DEVICES &&
+        C10_MAX_NUM_DEVICES <= std::numeric_limits<DeviceIndex>::max() + 1,
+    "The number of devices is either <1 or too large for its type. "
+    "Note that it is signed in order to store the default index -1.");
 
 /// Represents a compute device on which a tensor is located. A device is
 /// uniquely identified by a type, which specifies the type of machine it is

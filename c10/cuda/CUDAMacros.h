@@ -47,5 +47,6 @@ o */
 // fbcode depends on this value being 16
 #define C10_COMPILE_TIME_MAX_GPUS 16
 #else
-#define C10_COMPILE_TIME_MAX_GPUS 512
+#include <c10/core/Device.h>
+#define C10_COMPILE_TIME_MAX_GPUS C10_MAX_NUM_DEVICES
 #endif

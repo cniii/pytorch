@@ -809,9 +809,9 @@ inline at::Device toDevice(PyObject* obj) {
   if (THPUtils_checkLong(obj)) {
     const auto device_index = THPUtils_unpackLong(obj);
     TORCH_CHECK(
-        device_index >= 0 && device_index <= c10::MAX_DEVICE_INDEX,
+        device_index >= 0 && device_index < C10_MAX_NUM_DEVICES,
         "Device index must be between 0 and ",
-        c10::MAX_DEVICE_INDEX,
+        C10_MAX_NUM_DEVICES - 1,
         " inclusively.");
     if (c10::is_privateuse1_backend_registered()) {
       return at::Device(

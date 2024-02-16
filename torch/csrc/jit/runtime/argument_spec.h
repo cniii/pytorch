@@ -57,12 +57,10 @@ struct ArgumentInfo {
  private:
   unsigned defined_ : 1;
   unsigned requires_grad_ : 1;
-  unsigned : 5;
   unsigned dim_ : 8;
-  unsigned : 8;
+  signed device_ : sizeof(c10::DeviceIndex) * 8;
   unsigned type_ : 8;
   unsigned dev_type_ : 16;
-  signed device_ : sizeof(c10::DeviceIndex) * 8;
 };
 
 static_assert(
