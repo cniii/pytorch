@@ -75,9 +75,9 @@ PyObject* THPDevice_pynew(
       // -1 is allowed in ATen/C++, to mean the default device, but not in
       // Python.
       TORCH_CHECK(
-          device_index >= 0 && device_index < C10_MAX_NUM_DEVICES,
+          device_index >= 0 && device_index < c10::Device::MAX_NUM_DEVICES,
           "Device index must be between 0 and ",
-          C10_MAX_NUM_DEVICES - 1,
+          c10::Device::MAX_NUM_DEVICES - 1,
           " inclusively.");
     }
     at::Device device(

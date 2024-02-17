@@ -127,7 +127,7 @@ Device::Device(const std::string& device_string) : Device(Type::CPU) {
 
   if (!device_index_str.empty()) {
     // If the user passed an index in the device string, check if it is a valid
-    // int between 0 and C10_MAX_NUM_DEVICES - 1 inclusively
+    // int between 0 and c10::Device::MAX_NUM_DEVICES - 1 inclusively
     int full_index = -1;
     try {
       full_index = std::stoi(device_index_str);
@@ -141,9 +141,9 @@ Device::Device(const std::string& device_string) : Device(Type::CPU) {
           "'");
     }
     TORCH_CHECK(
-        0 <= full_index && full_index < C10_MAX_NUM_DEVICES,
+        0 <= full_index && full_index < c10::Device::MAX_NUM_DEVICES,
         "Device index must be between 0 and ",
-        C10_MAX_NUM_DEVICES - 1,
+        c10::Device::MAX_NUM_DEVICES - 1,
         " inclusively.");
     index_ = static_cast<c10::DeviceIndex>(full_index);
   }
