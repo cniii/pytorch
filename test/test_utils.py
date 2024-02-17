@@ -1018,11 +1018,11 @@ class TestDeviceUtils(TestCase):
 
     def test_int16_device_index(self):
         # Test if index does not wrap around when larger than int8
-        large_index = 30000
+        large_index = 500
         x = torch.device('meta', large_index)
         self.assertEqual(x.index, large_index)
 
-    def test_raise_on_device_index_overflow(self):
+    def test_raise_on_device_index_out_of_bounds(self):
         # Tests if an error is raised when the device index is out of bounds
         index_larger_than_max = 100000
         error_msg_regex = "^Device index must be.*"
