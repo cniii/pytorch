@@ -219,8 +219,7 @@ cudaError_t GetDevice(DeviceIndex* device) {
   auto err = cudaGetDevice(&tmp_device);
   if (err == cudaSuccess) {
     TORCH_INTERNAL_ASSERT(
-        tmp_device >= 0 &&
-            tmp_device < C10_COMPILE_TIME_MAX_GPUS,
+        tmp_device >= 0 && tmp_device < C10_COMPILE_TIME_MAX_GPUS,
         "cudaGetDevice returns invalid device ",
         tmp_device);
     *device = static_cast<DeviceIndex>(tmp_device);
@@ -270,8 +269,7 @@ DeviceIndex MaybeExchangeDevice(DeviceIndex to_device) {
   int tmp_cur_device = -1;
   C10_CUDA_CHECK(cudaGetDevice(&tmp_cur_device));
   TORCH_INTERNAL_ASSERT(
-      tmp_cur_device >= 0 &&
-          tmp_cur_device < C10_COMPILE_TIME_MAX_GPUS,
+      tmp_cur_device >= 0 && tmp_cur_device < C10_COMPILE_TIME_MAX_GPUS,
       "cudaGetDevice returns invalid device ",
       tmp_cur_device);
   auto cur_device = static_cast<DeviceIndex>(tmp_cur_device);
@@ -297,8 +295,7 @@ cudaError_t GetDevice(DeviceIndex* device) {
   auto err = cudaGetDevice(&tmp_device);
   if (err == cudaSuccess) {
     TORCH_INTERNAL_ASSERT(
-        tmp_device >= 0 &&
-            tmp_device < C10_COMPILE_TIME_MAX_GPUS,
+        tmp_device >= 0 && tmp_device < C10_COMPILE_TIME_MAX_GPUS,
         "cudaGetDevice returns invalid device ",
         tmp_device);
     *device = static_cast<DeviceIndex>(tmp_device);
