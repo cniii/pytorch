@@ -73,6 +73,7 @@ struct C10_API Device final {
   /// Sets the device index.
   void set_index(DeviceIndex index) {
     index_ = index;
+    validate();
   }
 
   /// Returns the type of device this is.
@@ -188,8 +189,10 @@ struct C10_API Device final {
     // This is safe to do, because backends that use the DeviceIndex
     // have a later check when we actually try to switch to that device.
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-        index_ >= -1,
-        "Device index must be -1 or non-negative, got ",
+        index_ >= -1 && index_ < MAX_NUM_DEVICES,
+        "Device index must be between -1 and ",
+        MAX_NUM_DEVICES - 1,
+        " inclusively, got ",
         static_cast<int>(index_));
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
         !is_cpu() || index_ <= 0,
