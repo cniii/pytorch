@@ -998,17 +998,36 @@ def returns_named_tuple_pyi(signature: PythonSignature) -> Optional[Tuple[str, s
     namedtuple_name = signature.name
     field_names = namedtuple_fieldnames(signature.returns.returns)
     if field_names:
-        namedtuple_def_lines = [f"class {namedtuple_name}(NamedTuple):"]
+        # These types are structseq objects which act like named NamedTuples, but
+        # the constructor acts like the constructor of tuple. Using typing.NamedTuple
+        # does not allow us to override __init__.
+        field_names_str = ", ".join(repr(name) for name in field_names)
+        seq_type = f"Tuple[{', '.join(python_returns)}]"
+        namedtuple_def_lines = [
+            f"class {namedtuple_name}({seq_type}):",
+        ]
+        for name, typ in zip(field_names, python_returns):
+            namedtuple_def_lines.extend(
+                [
+                    "    @property",
+                    f"    def {name}(self) -> {typ}: ...",
+                ]
+            )
         namedtuple_def_lines.extend(
-            f"    {name}: {typ}" for name, typ in zip(field_names, python_returns)
+            [
+                f"    def __init__(self, sequence: {seq_type}): ...",
+                "",  # add an extra newline
+            ]
         )
-        namedtuple_def_lines.append("")  # add an extra newline
         namedtuple_def = "\n".join(namedtuple_def_lines)
         # Example:
         # namedtuple_def = (
-        #     "class max(NamedTuple):\n"
-        #     "    values: Tensor\n"
-        #     "    indices: Tensor\n"
+        #     "class max(Tuple[Tensor, Tensor]):\n"
+        #     "    @property\n"
+        #     "    def values(self) -> Tensor: ...\n"
+        #     "    @property\n"
+        #     "    def indices(self) -> Tensor: ...\n"
+        #     "    def __init__(self, sequence: Tuple[Tensor, Tensor]): ...\n"
         # )
         return namedtuple_name, namedtuple_def
     return None
