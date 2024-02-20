@@ -222,7 +222,7 @@ struct CompleteArgumentInfoPOD {
   unsigned type : 8; // scalar type
   unsigned defined : 1;
   unsigned requires_grad : 1;
-  unsigned dev_type : 14;
+  signed dev_type : sizeof(c10::DeviceType) * 8;
   signed device : sizeof(c10::DeviceIndex) * 8;
   unsigned
       total_dims : 16; // all TensorInfoPODs are in CompleteArgumentSpec's
