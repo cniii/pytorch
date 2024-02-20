@@ -101,7 +101,7 @@ jobs:
 
       - name: Calculate docker image
         id: calculate-docker-image
-        uses: pytorch/test-infra/.github/actions/calculate-docker-image@DanilBaibak/Build-Docker-Image-for-ARC
+        uses: pytorch/test-infra/.github/actions/calculate-docker-image@DanilBaibak/Build-Docker-Image-for-ARC # TODO - clean it before merge
         with:
           docker-image-name: ${{ inputs.docker-image-name }}
           is-arc: true
@@ -140,6 +140,7 @@ jobs:
           test-matrix: ${{ inputs.test-matrix }}
           job-name: ${{ steps.get-job-id.outputs.job-name }}
 
+#      TODO - rollback it after we're done with S3 setup
 #      - name: Download pytest cache
 #        uses: ./.github/actions/pytest-cache-download
 #        continue-on-error: true

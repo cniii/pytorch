@@ -1,4 +1,4 @@
-name: Setup Linux
+name: Setup Linux for ARC runner
 
 description: Set up Docker workspace on EC2
 
