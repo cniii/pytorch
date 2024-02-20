@@ -8856,6 +8856,17 @@ get_out().sum().backward()
 
             _test_fn(chain_with_only_current_view_func, torch.randn(2, 3, 4))
 
+            # TODO: Move this somewhere else
+            # test NT views
+            from torch.nested._internal.nested_tensor import nested_view_from_values_offsets
+
+            values = torch.randn(10, 5)
+            offsets = torch.tensor([0, 3, 6, 10])
+            _test_fn(nested_view_from_values_offsets, values, offsets)
+
+            nt = nested_view_from_values_offsets(values, offsets).clone().detach()
+            _test_fn(torch.ops.aten._nested_get_values.default, nt, use_unsafe_fwd=True)
+
     def test_view_func_replay_with_modified_state(self):
         with torch.autograd._force_original_view_tracking(True):
             base = torch.randn(3, 4, 5)
