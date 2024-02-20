@@ -102,6 +102,9 @@ struct DeviceStats {
   // COUNT: total number of oversize blocks requiring malloc
   Stat oversize_segments;
 
+  // COUNT: total number of synchronize_and_free_events() calls
+  int64_t num_sync_and_free = 0;
+
   // SIZE: maximum block size that is allowed to be split.
   int64_t max_split_size = 0;
 };

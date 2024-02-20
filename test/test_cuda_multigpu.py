@@ -156,8 +156,15 @@ class TestCudaMultiGPU(TestCase):
             last_r_arr[0] = new_r
             max_r_arr[0] = new_max_r
 
+            stat_key_n_sync_free = "num_sync_and_free"
             if empty_cache:
+                num_sync_1 = torch.cuda.memory_stats(device).get(stat_key_n_sync_free, -1)
+                self.assertGreaterEqual(num_sync_1, 0)
+                # empty_cache will enforce the call of release_cached_blocks
                 torch.cuda.empty_cache()
+                num_sync_2 = torch.cuda.memory_stats(device).get(stat_key_n_sync_free, -1)
+                self.assertEqual(num_sync_1 + 1, num_sync_2)
+
                 new_r = torch.cuda.memory_reserved(device)
                 new_max_r = torch.cuda.max_memory_reserved(device)
                 self.assertLessEqual(new_r, last_r_arr[0])

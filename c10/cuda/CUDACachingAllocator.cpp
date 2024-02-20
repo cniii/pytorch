@@ -1413,6 +1413,7 @@ class DeviceCachingAllocator {
 
     stats.num_alloc_retries = 0;
     stats.num_ooms = 0;
+    stats.num_sync_and_free = 0;
     reset_accumulated_stat(stats.oversize_allocations);
     reset_accumulated_stat(stats.oversize_segments);
   }
@@ -2672,6 +2673,7 @@ class DeviceCachingAllocator {
   void synchronize_and_free_events(
       const std::shared_ptr<GatheredContext>& context) {
     // Synchronize on outstanding events and then free associated blocks.
+    stats.num_sync_and_free += 1;
 
     // This function syncs, so capture should not be underway. Might as well
     // make sure capture-deferred end of life events get processed too.
