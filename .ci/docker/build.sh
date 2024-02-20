@@ -71,7 +71,7 @@ if [[ "$image" == *cuda* && "$UBUNTU_VERSION" != "22.04" ]]; then
   DOCKERFILE="${OS}-cuda/Dockerfile"
 elif [ "$3" = "ARC" ]; then
   DOCKERFILE="${OS}-arc/Dockerfile"
-  shift
+  set -- "${@:1:2}" "${@:4}"
 elif [[ "$image" == *rocm* ]]; then
   DOCKERFILE="${OS}-rocm/Dockerfile"
 elif [[ "$image" == *xpu* ]]; then
