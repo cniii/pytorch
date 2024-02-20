@@ -22,7 +22,7 @@ permissions: read-all
 jobs:
   linux-jammy-py3_8-gcc11-build:
     name: linux-jammy-py3.8-gcc11
-    uses: ./.github/workflows/_linux-build.yml
+    uses: ./.github/workflows/_linux-build-arc.yml
     with:
       runner: arc-lf-linux.2xlarge.arc-rootless.canary
       build-environment: linux-jammy-py3.8-gcc11
