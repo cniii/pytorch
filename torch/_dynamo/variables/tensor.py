@@ -641,6 +641,9 @@ class TensorVariable(VariableTracker):
     def method_data_ptr(self, *args, **kwargs):
         unimplemented("Tensor.data_ptr")
 
+    def method_coalesce(self, *args, **kwargs):
+        unimplemented("Tensor.coalesce")
+
     def method_item(self, *args, **kwargs):
         if not config.capture_scalar_outputs:
             unimplemented("Tensor.item")

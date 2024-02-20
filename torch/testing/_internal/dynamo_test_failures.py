@@ -400,7 +400,6 @@ dynamo_expected_failures = {
     "TestSDPACPU.test_fused_sdp_choice_cpu_type_dense_dropout_0_7_float64_cpu_float64",
     "TestSDPACPU.test_fused_sdp_choice_cpu_type_dense_dropout_0_0_float16_cpu_float16",
     "TestSDPACPU.test_fused_sdp_choice_cpu_type_dense_dropout_0_7_bfloat16_cpu_bfloat16",
-    "TestAssertCloseSparseCOO.test_matching_coalesced",  # test_testing
     "TestImports.test_circular_dependencies",  # test_testing
     "TestAssertCloseSparseCSR.test_mismatching_crow_indices_msg",  # test_testing
     "TestAssertCloseSparseBSC.test_mismatching_row_indices_msg",  # test_testing
