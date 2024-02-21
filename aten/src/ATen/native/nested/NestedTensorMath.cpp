@@ -896,6 +896,58 @@ int64_t _nested_get_ragged_idx(const Tensor& self) {
   return 0;
 }
 
+Tensor _nested_strided_to_jagged(const Tensor& self, const Tensor& dummy) {
+  auto self_ptr = get_nested_tensor_impl(self);
+
+  // All jagged NT can be converted into strided NTs, but the opposite is not True
+  // Only strided NTs with a single jagged dimension might be converted into
+  // jagged NTs, so first we check for that
+  int ragged_dims_count = 0;
+  int ragged_idx = -1;
+  for (int64_t i = 0; i < self_ptr->dim(); ++i) {
+    if (!self_ptr->opt_size(i).has_value()) {
+      ragged_dims_count++;
+      ragged_idx = i;
+    }
+  }
+  TORCH_INTERNAL_ASSERT(ragged_dims_count == 1, "Only strided NTs with 1 jagged dim can be converted to jagged NT");
+
+  // Once that's checked, we convert the offsets + sizes in strided NT to
+  // offsets + (optionally) lengths for the jagged NT
+  auto ragged_offsets = self_ptr->get_storage_offsets();
+  auto ragged_sizes = self_ptr->get_nested_sizes();
+  size_t post_ragged_stride = 1;
+  for (int64_t i = ragged_idx; i < ragged_sizes.size(1); ++i) {
+    post_ragged_stride *= ragged_sizes[0][i].item().toInt();
+  }
+  auto ragged_offsets_sizes = ragged_offsets.sizes();
+  auto metadata_tensor_options = self_ptr->get_buffer().options().dtype(kInt);
+  auto jagged_offsets = at::empty({ragged_offsets_sizes[0]+1}, metadata_tensor_options);
+  auto jagged_lengths = at::empty({ragged_offsets_sizes[0]}, metadata_tensor_options);
+  bool lengths_needed = false;
+  for (int64_t i = 0; i < ragged_offsets.size(0); ++i) {
+    jagged_offsets[i] = ragged_offsets[i] / post_ragged_stride;
+    if (i > 0) {
+      auto offsets_diff = (ragged_offsets[i] - ragged_offsets[i-1]) / post_ragged_stride;
+      jagged_lengths[i-1] = ragged_sizes[i][ragged_idx];
+      if ((offsets_diff != ragged_sizes[i][ragged_idx]).item().toBool()) {
+        lengths_needed = true;
+      }
+    }
+  }
+  jagged_offsets[-1] = jagged_offsets[-2] + ragged_sizes[-1][ragged_idx];
+  jagged_lengths[-1] = ragged_sizes[-1][ragged_idx];
+  c10::optional<at::Tensor> jagged_lengths_arg = lengths_needed ? c10::optional(jagged_lengths) : c10::nullopt;
+
+  return at::_nested_view_from_jagged(self_ptr->get_buffer(), jagged_offsets, dummy, jagged_lengths_arg, ragged_idx);
+}
+
+Tensor _nested_get_jagged_dummy(const Tensor& any) {
+  TORCH_INTERNAL_ASSERT(
+      false, "_nested_get_jagged_dummy(): expected to be implemented from Python");
+  return Tensor();
+}
+
 // See Note [Special size rule for nested tensor]
 Tensor reshape_nested(const Tensor& self, IntArrayRef proposed_shape) {
   TORCH_CHECK(

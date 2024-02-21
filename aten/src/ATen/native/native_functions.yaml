@@ -6145,6 +6145,20 @@
     CompositeExplicitAutogradNonFunctional: _nested_view_from_jagged_copy
   autogen: _nested_view_from_jagged_copy.out
 
+- func: _nested_strided_to_jagged(Tensor(a) self, Tensor dummy) -> Tensor(a)
+  variants: function
+  device_check: NoCheck
+  dispatch:
+    NestedTensorCPU, NestedTensorCUDA: _nested_strided_to_jagged
+
+- func: _nested_strided_to_jagged_copy(Tensor self, Tensor dummy) -> Tensor
+  variants: function
+  device_check: NoCheck
+  tags: view_copy
+  dispatch:
+    CompositeExplicitAutogradNonFunctional: _nested_strided_to_jagged_copy
+  autogen: _nested_strided_to_jagged_copy.out
+
 - func: _nested_get_values(Tensor(a) self) -> Tensor(a)
   variants: function
   device_check: NoCheck
@@ -6177,6 +6191,11 @@
   device_check: NoCheck
   dispatch:
     NestedTensorCPU, NestedTensorCUDA: _nested_get_ragged_idx
+
+- func: _nested_get_jagged_dummy(Tensor any) -> Tensor
+  category_override: dummy
+  dispatch:
+    CPU, CUDA, Meta: _nested_get_jagged_dummy
 
 - func: _trilinear(Tensor i1, Tensor i2, Tensor i3, int[] expand1, int[] expand2, int[] expand3, int[] sumdim, int unroll_dim=1) -> Tensor
   dispatch:
