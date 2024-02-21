@@ -781,7 +781,8 @@ class FakeTensorTest(TestCase):
     def test_export_numpy(self):
         class MyNumpyModel(torch.nn.Module):
             def forward(self, input):
-                return input.numpy()
+                input = input.numpy()
+                return input + np.random.randn(*input.shape)
 
         with FakeTensorMode():
             ep = torch.export.export(MyNumpyModel(), args=(torch.randn(1000),))
