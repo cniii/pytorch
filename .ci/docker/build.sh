@@ -10,9 +10,6 @@ if [ -z "${image}" ]; then
   exit 1
 fi
 
-echo "Check env variable for arc: '$IS_ARC'"
-exit 1
-
 function extract_version_from_image_name() {
   eval export $2=$(echo "${image}" | perl -n -e"/$1(\d+(\.\d+)?(\.\d+)?)/ && print \$1")
   if [ "x${!2}" = x ]; then
@@ -72,7 +69,7 @@ DOCKERFILE="${OS}/Dockerfile"
 # When using ubuntu - 22.04, start from Ubuntu docker image, instead of nvidia/cuda docker image.
 if [[ "$image" == *cuda* && "$UBUNTU_VERSION" != "22.04" ]]; then
   DOCKERFILE="${OS}-cuda/Dockerfile"
-elif [ "$3" = "ARC" ]; then
+elif [ "$IS_ARC" = "true" ]; then
   DOCKERFILE="${OS}-arc/Dockerfile"
   set -- "${@:1:2}" "${@:4}"
 elif [[ "$image" == *rocm* ]]; then
