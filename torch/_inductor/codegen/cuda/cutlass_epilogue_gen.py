@@ -17,7 +17,148 @@ from torch._inductor.utils import IndentedBuffer
 _MAGIC_SYMPY_ERROR_STRING = "[!sympy: unsupported expr!]"
 
 
-def _arg_str(a):
+EVT_EXTRA_HEADER = """
+namespace cutlass::epilogue::fusion {
+
+using namespace cute;
+using namespace detail;
+
+// Sm90AuxLoadDirect implementation ( based on Sm90ColBroadcast )
+// which loads directly from global memory, without using shared memory
+template<
+  int _IgnoredStages,
+  class CtaTileShapeMNK,
+  class Element,
+  class StrideMNL,
+  class _IgnoredSmemLayoutAtom,
+  class _IgnoredCopyOpS2R,
+  int Alignment = 128 / sizeof_bits_v<Element>,
+  bool EnableNullptr = true // Fallback scalar broadcast for nullptr params
+>
+struct Sm90AuxLoadDirect {
+  constexpr static int Stages = 0;
+  static_assert(Stages == 0, "Direct load only supports 0 stages");
+  static_assert(Alignment * sizeof_bits_v<Element> % 128 == 0, "sub-16B alignment not supported yet");
+
+  // Accumulator distributes col elements evenly amongst threads so we can just directly load from gmem
+  struct SharedStorage { };
+
+  struct Arguments {
+    Element const* ptr_col = nullptr;
+    Element null_default = Element(0);
+    StrideMNL dCol = {};
+  };
+
+  using Params = Arguments;
+
+  template <class ProblemShape>
+  static constexpr Params
+  to_underlying_arguments(ProblemShape const& problem_shape, Arguments const& args, void* workspace) {
+    return args;
+  }
+
+  template <class ProblemShape>
+  static size_t
+  get_workspace_size(ProblemShape const& problem_shape, Arguments const& args) {
+    return 0;
+  }
+
+  template <class ProblemShape>
+  static cutlass::Status
+  initialize_workspace(ProblemShape const& problem_shape, Arguments const& args, void* workspace, cudaStream_t stream) {
+    return cutlass::Status::kSuccess;
+  }
+
+  CUTLASS_DEVICE bool
+  is_producer_load_needed() const {
+    return false;
+  }
+
+  CUTLASS_DEVICE bool
+  is_C_load_needed() const {
+    return false;
+  }
+
+  CUTLASS_HOST_DEVICE
+  Sm90AuxLoadDirect() { }
+
+  CUTLASS_HOST_DEVICE
+  Sm90AuxLoadDirect(Params const& params, SharedStorage const& shared_storage)
+      : params(params) { }
+
+  Params params;
+
+  template <class... Args>
+  CUTLASS_DEVICE auto
+  get_producer_load_callbacks(ProducerLoadArgs<Args...> const& args) {
+    return EmptyProducerLoadCallbacks{};
+  }
+
+  template<class GTensor, class RTensor>
+  struct ConsumerStoreCallbacks : EmptyConsumerStoreCallbacks {
+    CUTLASS_DEVICE
+    ConsumerStoreCallbacks(GTensor&& tCgCol, RTensor&& tCrCol, Params const& params)
+      : tCgCol(cute::forward<GTensor>(tCgCol)),
+        tCrCol(cute::forward<RTensor>(tCrCol)),
+        params(params) {}
+
+    GTensor tCgCol;                                                                    // (CPY,CPY_M,CPY_N,EPI_M,EPI_N)
+    RTensor tCrCol;                                                                    // (CPY,CPY_M,CPY_N,EPI_M,EPI_N)
+    Params const& params;
+
+    CUTLASS_DEVICE void
+    begin() {
+      if constexpr (EnableNullptr) {
+        if (params.ptr_col == nullptr) {
+          fill(tCrCol, params.null_default);
+          return;
+        }
+      }
+
+      // Filter so we don't issue redundant copies over stride-0 modes
+      // (only works if 0-strides are in same location, which is by construction)
+      copy_aligned(filter(tCgCol), filter(tCrCol));
+    }
+
+    template <typename ElementAccumulator, int FragmentSize>
+    CUTLASS_DEVICE Array<Element, FragmentSize>
+    visit(Array<ElementAccumulator, FragmentSize> const& frg_acc, int epi_v, int epi_m, int epi_n) {
+      Array<Element, FragmentSize> frg_col;
+      Tensor tCrCol_mn = tCrCol(_,_,_,epi_m,epi_n);
+
+      CUTLASS_PRAGMA_UNROLL
+      for (int i = 0; i < FragmentSize; ++i) {
+        frg_col[i] = tCrCol_mn(epi_v * FragmentSize + i);
+      }
+
+      return frg_col;
+    }
+
+  };
+
+  template <
+    bool ReferenceSrc, // do register tensors reference the src or dst layout of the tiled copy
+    class... Args
+  >
+  CUTLASS_DEVICE auto
+  get_consumer_store_callbacks(ConsumerStoreArgs<Args...> const& args) {
+
+    auto [M, N, K, L] = args.problem_shape_mnkl;
+    Tensor mCol = make_tensor(make_gmem_ptr(params.ptr_col), make_shape(M,N,L), params.dCol);
+    Tensor tCgCol = sm90_partition_for_epilogue<ReferenceSrc>(                         // (CPY,CPY_M,CPY_N,EPI_M,EPI_N)
+      mCol, args.tile_shape_mnk, args.tile_coord_mnkl, args.epi_tile, args.tiled_copy, args.thread_idx);
+    Tensor tCrCol = make_tensor_like(tCgCol);                                          // (CPY,CPY_M,CPY_N,EPI_M,EPI_N)
+
+    return ConsumerStoreCallbacks<decltype(tCgCol), decltype(tCrCol)>(
+      cute::move(tCgCol), cute::move(tCrCol), params);
+  }
+};
+
+} // namespace cutlass::epilogue::fusion
+"""
+
+
+def _arg_parse(a):
     if isinstance(a, sympy.Expr):
         return a
     return str(a)
@@ -63,6 +204,12 @@ class CutlassEVTEpilogueTypeFormatter:
         - accumulator_node_name (str): The name of the output Buffer for the GEMM operation in the original (unfused)
                                        IR graph.
         - evt_type_name (str):      The output name of the EVT type we are generating.
+        - pre_fused_evt (Optional[str]): Optional EVT expression declaration that is pre-fused into the template
+                                    (typically addmm style bias addition etc.)
+        - c_operand_alias (Optional[str]): Optional name of the C operand
+        - gemm_output_layout: Output layout of the GEMM operation.
+        - flip_mn: Whether to flip the M and N dimensions of the GEMM output layout.
+        - aux_load_direct: Whether to use direct loads for auxiliary inputs (i.e. load directly from global memory)
 
         """
         self.accumulator_node_name = accumulator_node_name
@@ -96,6 +243,12 @@ class CutlassEVTEpilogueTypeFormatter:
             evt_type_name (str): The name of the EVT type.
             epilogue_nodes (List[IRNode]): A list of IR nodes representing the epilogue nodes. As of now, these must be
                 ComputedBuffer nodes wrapping Pointwise nodes.
+            pre_fused_evt: Optional EVT expression declaration that is pre-fused into the template
+                           (typically addmm style bias addition etc.)
+            c_operand_alias: Optional name of the C operand
+            gemm_output_layout: Output layout of the GEMM operation.
+            flip_mn: Whether to flip the M and N dimensions of the GEMM output layout.
+            aux_load_direct: Whether to use direct loads for auxiliary inputs (i.e. load directly from global memory)
 
         Returns:
             A string representation of the IR nodes formatted according to the Cutlass EVT format.
@@ -164,6 +317,19 @@ class CutlassEVTEpilogueTypeFormatter:
 
     @staticmethod
     def create_pre_fused_addmm_evt_type() -> str:
+        """returns the name of the ADDMM EVT type which has been declared like this:
+
+        using ADDMM_EVT =  // alpha * acc + beta * C
+            cutlass::epilogue::fusion::Sm90EVT<cutlass::epilogue::fusion::Sm90Compute<cutlass::homogeneous_multiply_add,
+                        ElementD, ElementCompute, RoundStyle>, // beta * C + (alpha * acc)
+                  cutlass::epilogue::fusion::Sm90ScalarBroadcast<ElementScalar>, // beta
+                  cutlass::epilogue::fusion::Sm90SrcFetch, // C
+                  cutlass::epilogue::fusion::Sm90EVT<cutlass::epilogue::fusion::Sm90Compute<cutlass::multiplies,
+                        ElementCompute, ElementCompute, RoundStyle>, // alpha * acc
+                    cutlass::epilogue::fusion::Sm90ScalarBroadcast<ElementScalar>, // alpha
+                    cutlass::epilogue::fusion::Sm90AccFetch // acc
+              >>
+        """
         return "ADDMM_EVT"
 
     def __getattr__(self, name):
@@ -469,9 +635,6 @@ class CutlassEVTEpilogueArgumentFormatter:
         elif name == self.c_operand_alias:
             return "{}"
         else:
-            raise CUTLASSEVTOpNotImplementedError(
-                f"Operand {name} not found. Auxiliary inputs not supported yet."
-            )
             if self.dry_run:
                 return f"{{ /* dry run placeholder for aux input {name} */ }}"
             kernel = virtualized.V.kernel
@@ -492,6 +655,10 @@ class CutlassEVTEpilogueArgumentFormatter:
             strides: List[int] = map_pointwise_index_to_read_strides(
                 index_expr, self.gemm_output_layout, self.flip_mn
             )
+            # For the sanity check,
+            # output size dimensions need to be flipped if flip_mn=True for the GEMM
+            # since the output layout (incl. sizes) might have been flipped
+            # from what is actually written
             gemm_write_sizes = list(self.gemm_output_layout.size)
             if self.flip_mn:
                 gemm_write_sizes[-1], gemm_write_sizes[-2] = (
@@ -502,6 +669,7 @@ class CutlassEVTEpilogueArgumentFormatter:
             load_stride_max_idx = sum(
                 [stride * (dim - 1) for stride, dim in zip(strides, gemm_write_sizes)]
             )
+            # The strides might have reinterpreted the buffer, but they may not read beyond it's bounds, let's check that...
             assert (
                 load_stride_max_idx < aux_input_node.get_numel()
             ), f"Aux input would read beyond bounds (A): Load stride {strides} for node {aux_input_node.get_name()} with layout {aux_input_node.get_layout()} - accessed using index expr {index_expr} is too large for the node when mapped onto GEMM with output layout {self.gemm_output_layout}."  # noqa: B950
@@ -612,6 +780,10 @@ def create_cutlass_aux_load_descriptor(
     strides: List[int] = map_pointwise_index_to_read_strides(
         index_expr, gemm_output_layout, flip_mn
     )
+    # For the sanity check,
+    # output size dimensions need to be flipped if flip_mn=True for the GEMM
+    # since the output layout (incl. sizes) might have been flipped
+    # from what is actually written
     gemm_write_sizes = list(gemm_output_layout.size)
     if flip_mn:
         gemm_write_sizes[-1], gemm_write_sizes[-2] = (
@@ -621,6 +793,7 @@ def create_cutlass_aux_load_descriptor(
     load_stride_max_idx = sum(
         [stride * (dim - 1) for stride, dim in zip(strides, gemm_write_sizes)]
     )
+    # The strides might have reinterpreted the buffer, but they may not read beyond it's bounds, let's check that...
     assert (
         load_stride_max_idx < node.get_numel()
     ), f"Aux input would read beyond bounds (B): Load stride {strides} for node {node.get_name()} with layout {node.get_layout()} - accessed using index expr {index_expr} is too large for the node when mapped onto GEMM with output layout {gemm_output_layout}."  # noqa: B950
