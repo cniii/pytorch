@@ -32,6 +32,8 @@ class TestExportTorchbind(TestCase):
             lib_file_path = find_library_location("libtorchbind_test.so")
             torch.ops.load_library(str(lib_file_path))
 
+        torch.ops.import_module("torchbind_impls")
+
     def _test_export_same_as_eager(self, f, args, kwargs=None, strict=True):
         kwargs = kwargs or {}
         with enable_torchbind_tracing():

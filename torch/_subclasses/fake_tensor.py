@@ -1196,6 +1196,32 @@ class FakeTensorMode(TorchDispatchMode):
             # NOTE: incr is intentionally unused for a RAII pattern
             incr = IncrementRecursionCount()
 
+        def _wrap_script_object(x):
+            # NOTE: Skip fakifying inputs to torch.ops.profiler because they only have c++ implementation
+            # and are performance critical. The suggested workaround will cause non-eligible overhead.
+            if func in {
+                torch.ops.profiler._record_function_enter_new,
+                torch.ops.profiler._record_function_exit._RecordFunction,
+            }:
+                return x
+
+            full_qualname = x._type().qualified_name()
+            if full_qualname not in torch.library.registered_class:
+                raise RuntimeError(
+                    f"Trying to fake tensor dispatch {func} that takes ScriptObject {full_qualname} "
+                    f" as input but the ScriptObject's class haven't registered a fake class. If {func} is supposed "
+                    f" to be exported as a node in graph and preserve the script obj as input to the node, "
+                    f" please use torch.library.impl_abstract_class to"
+                    f" register a fake class for the script obj. Otherwise, consider disabling proxy and"
+                    f" fake modes for the operator by e.g. wrappping it with maybe_disable_fake_tensor_mode()."
+                )
+            fake_class = torch.library.registered_class[full_qualname]
+            return fake_class.from_real(x)
+
+        args, kwargs = pytree.tree_map_only(
+            torch.ScriptObject, lambda x: _wrap_script_object(x), (args, kwargs)
+        )
+
         # Some attribute queries that can be serviced directly
         # See Note [is_coalesced is dispatched]
         if func in _DISPATCH_HANDLE_DIRECTLY:
