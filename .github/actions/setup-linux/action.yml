@@ -55,7 +55,7 @@ runs:
         fi
 
     - name: Install AWS CLI v2
-      if: ${{ inputs.is_arc }}
+      if: ${{ inputs.is_arc == true }}
       run: |
         curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
         unzip awscliv2.zip
