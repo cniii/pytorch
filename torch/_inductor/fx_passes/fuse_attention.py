@@ -11,7 +11,7 @@ from ..pattern_matcher import (
     joint_fwd_bwd,
     register_replacement,
 )
-
+from torch._inductor.utils import is_linux
 log = logging.getLogger(__name__)
 aten = torch.ops.aten
 
@@ -100,7 +100,7 @@ def _sfdp_replacement_4(query, key, value, scale_factor, dropout_p):
         is_causal=False,
         scale=scale_factor,
     )
-
+    
 
 def _sfdp_pattern_5(query, key, value, attn_mask):
     attn_weight = torch.softmax(
@@ -112,15 +112,18 @@ def _sfdp_pattern_5(query, key, value, attn_mask):
 
 def _sfdp_replacement_5(query, key, value, attn_mask):
     counters["inductor"]["fuse_attention"] += 1
-    return aten.scaled_dot_product_attention(
-        query.contiguous(),
-        key.contiguous(),
-        value.contiguous(),
-        attn_mask=attn_mask.to(dtype=query.dtype),
-        dropout_p=0.0,
-        is_causal=False,
-    )
-
+    if str(query.device) == "cpu" and is_linux():
+        scale_tensor = torch.full((), math.sqrt(query.size(-1)), dtype=query.dtype)
+        return torch.ops.mkldnn._graph_sdpa_pattern(0, key.transpose(2, -1), query, value, scale_tensor, attn_mask.to(dtype=query.dtype))
+    else:
+        return aten.scaled_dot_product_attention(
+            query.contiguous(),
+            key.contiguous(),
+            value.contiguous(),
+            attn_mask=attn_mask.to(dtype=query.dtype),
+            dropout_p=0.0,
+            is_causal=False,
+        )
 
 def _sfdp_pattern_6(query, key, value, attn_mask, dropout_p):
     attn_weight = torch.softmax(
@@ -476,19 +479,30 @@ def _sfdp_params_check(match):
     return True
 
 
-def _sfdp_extra_check(scale_factor_op, disable_cuda=False):
+def _sfdp_extra_check(scale_factor_op, disable_cuda=False, only_linux=False, only_cpu=False):
     def fn(match):
-        scale_factor_node = filter_nodes(match.nodes, scale_factor_op)[0]
-        # Note: args[1] of the scale_factor_node is always the scale_factor for the current patterns.
-        scale_factor = scale_factor_node.args[1]
-        # make sure the scale_factor a float/int. SymInt?
-        if not isinstance(scale_factor, (float, int)):
-            return False
+        # first check device and OS
         if (
             disable_cuda
             and "query" in match.kwargs
             and "cuda" in str(match.kwargs["query"].meta["val"].device)
         ):
+            return False
+        '''
+        if (
+            only_cpu
+            and "cpu" not in str(match.kwargs["query"].meta["val"].device)
+        ):
+            return False
+        if (not is_linux() and only_linux):
+            return False
+        '''
+        # attempt scale_factor_op match
+        scale_factor_node = filter_nodes(match.nodes, scale_factor_op)[0]
+        # Note: args[1] of the scale_factor_node is always the scale_factor for the current patterns.
+        scale_factor = scale_factor_node.args[1]
+        # make sure the scale_factor a float/int. SymInt?
+        if not isinstance(scale_factor, (float, int)):
             return False
         return _sfdp_params_check(match)
 

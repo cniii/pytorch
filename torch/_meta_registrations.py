@@ -5276,6 +5276,16 @@ def meta__scaled_dot_product_efficient(
 
     return res, logsum_exp, seed, offset
 
+@register_meta([torch.ops.mkldnn._graph_sdpa_pattern])
+def meta_sdpa_pattern_11(
+    uniqueID: int,
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    scale: Optional[torch.Tensor],
+    attn_mask: Optional[torch.Tensor]
+):
+    return query
 
 @register_meta(
     [

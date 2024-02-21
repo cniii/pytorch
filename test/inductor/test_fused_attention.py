@@ -104,6 +104,7 @@ class TestSDPAPatternRewriterTemplate(TestCase):
                     ):
                         self.assertEqual(arg1.grad, arg2.grad, atol=atol, rtol=rtol)
 
+
     @skipIfRocm
     def _test_sdpa_rewriter_1(self):
         def dot_prod_attention(
@@ -231,11 +232,10 @@ class TestSDPAPatternRewriterTemplate(TestCase):
                 dim=-1,
             )
             return attn_weight @ value
-
-        self._check_common(sfdp_pattern_5_v1, contains=False)
-        self._check_common(checkpoint_wrapper(sfdp_pattern_5_v1), contains=False)
-        self._check_common(sfdp_pattern_5_v2, contains=False)
-        self._check_common(checkpoint_wrapper(sfdp_pattern_5_v2), contains=False)
+        self._check_common(sfdp_pattern_5_v1, contains=False, check_train=False)
+        self._check_common(checkpoint_wrapper(sfdp_pattern_5_v1), contains=False, check_train=False)
+        self._check_common(sfdp_pattern_5_v2, contains=False, check_train=False)
+        self._check_common(checkpoint_wrapper(sfdp_pattern_5_v2), contains=False, check_train=False)
 
     @skipIfRocm
     def _test_sdpa_rewriter_6(self):

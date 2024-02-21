@@ -9,8 +9,8 @@
 #include <cpuinfo.h>
 #endif
 #include <vector>
-
 #if AT_MKLDNN_ENABLED()
+#include <oneapi/dnnl/dnnl_graph.hpp>
 #include <ideep/tensor.hpp>
 #endif // AT_MKLDNN_ENABLED()
 
@@ -82,6 +82,25 @@ const std::map<c10::string_view, ideep::algorithm>& fusion_unary_alg_map();
 
 const std::map<c10::string_view, ideep::algorithm>& fusion_binary_alg_map();
 
+
+namespace onednn_graph {
+
+struct Engine {
+  // CPU engine singleton
+  static dnnl::engine& getEngine();
+  Engine(const Engine&) = delete;
+  void operator=(const Engine&) = delete;
+};
+
+struct Stream {
+  // CPU stream singleton
+  static dnnl::stream& getStream();
+  Stream(const Stream&) = delete;
+  void operator=(const Stream&) = delete;
+};
+
+}
+
 #endif // AT_MKLDNN_ENABLED()
 };
 
@@ -137,3 +156,4 @@ inline void mkldnn_check_low_precision(ScalarType input_t, std::string name) {
 }
 
 }
+
