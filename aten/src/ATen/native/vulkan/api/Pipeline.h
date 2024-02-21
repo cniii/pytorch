@@ -25,6 +25,8 @@ struct PipelineBarrier final {
 
   std::vector<BufferMemoryBarrier> buffers;
   std::vector<ImageMemoryBarrier> images;
+  std::vector<VkBufferMemoryBarrier> vkBuffers;
+  std::vector<VkImageMemoryBarrier> vkImages;
 
   inline operator bool() const {
     return (0u != stage.src) || (0u != stage.dst) || !buffers.empty() ||

@@ -616,6 +616,8 @@ void vTensorStorage::transition(
           cur_layout,
           new_layout,
           image_);
+      pipeline_barrier.vkImages.push_back(
+          pipeline_barrier.images.back().handle);
 
       image_.set_layout(new_layout);
     } else if (buffer_) {
@@ -623,6 +625,8 @@ void vTensorStorage::transition(
           api::vk_access(prev_stage, prev_access),
           api::vk_access(cur_stage, cur_access),
           buffer_);
+      pipeline_barrier.vkBuffers.push_back(
+          pipeline_barrier.buffers.back().handle);
     }
   }
 
@@ -661,6 +665,7 @@ void add_buffer_barrier(
         api::vk_access(cur_stage, cur_access),
         buffer);
   }
+  pipeline_barrier.vkBuffers.push_back(pipeline_barrier.buffers.back().handle);
 }
 
 } // namespace vulkan
