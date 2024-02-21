@@ -111,7 +111,7 @@ jobs:
         uses: pytorch/test-infra/.github/actions/calculate-docker-image@DanilBaibak/Build-Docker-Image-for-ARC # TODO - clean it before merge
         with:
           docker-image-name: ${{ inputs.docker-image-name }}
-          is-arc: inputs.is_arc
+          is-arc: ${{ inputs.is_arc }}
 
       - name: Use following to pull public copy of the image
         id: print-ghcr-mirror
