@@ -3714,7 +3714,6 @@ class TestNestedTensorSubclass(TestCase):
 
     # Note 1: Math fallback doesn't work with bfloat16 on CUDA
     # Note 2: ROCm doesn't support flash attention or mem_efficient attention for NT
-    @xfailIfTorchDynamo
     @unittest.skipIf(
         TEST_WITH_ROCM,
         "ROCm doesn't support flash attention or mem_efficient attention for NT",
