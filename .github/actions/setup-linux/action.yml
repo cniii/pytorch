@@ -37,7 +37,7 @@ runs:
     - name: Start docker if docker deamon is not running
       shell: bash
       env:
-        IS_ARC: inputs.is_arc
+        IS_ARC: ${{ inputs.is_arc }}
       run: |
         if [ "$IS_ARC" = "true" ]; then
           docker info > /dev/null 2>&1
