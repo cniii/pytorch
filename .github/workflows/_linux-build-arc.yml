@@ -102,7 +102,9 @@ jobs:
         uses: pytorch/pytorch/.github/actions/checkout-pytorch@main
 
       - name: Setup Linux
-        uses: ./.github/actions/setup-linux-arc
+        uses: ./.github/actions/setup-linux
+        with:
+          is_arc: true
 
       - name: Calculate docker image
         id: calculate-docker-image

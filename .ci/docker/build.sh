@@ -69,8 +69,6 @@ DOCKERFILE="${OS}/Dockerfile"
 # When using ubuntu - 22.04, start from Ubuntu docker image, instead of nvidia/cuda docker image.
 if [[ "$image" == *cuda* && "$UBUNTU_VERSION" != "22.04" ]]; then
   DOCKERFILE="${OS}-cuda/Dockerfile"
-#elif [ "$IS_ARC" = "true" ]; then
-#  DOCKERFILE="${OS}-arc/Dockerfile"
 elif [[ "$image" == *rocm* ]]; then
   DOCKERFILE="${OS}-rocm/Dockerfile"
 elif [[ "$image" == *xpu* ]]; then
