@@ -10,6 +10,9 @@ if [ -z "${image}" ]; then
   exit 1
 fi
 
+echo "Check env variable for arc: '$IS_ARC'"
+exit 1
+
 function extract_version_from_image_name() {
   eval export $2=$(echo "${image}" | perl -n -e"/$1(\d+(\.\d+)?(\.\d+)?)/ && print \$1")
   if [ "x${!2}" = x ]; then
