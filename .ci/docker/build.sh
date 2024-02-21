@@ -69,9 +69,8 @@ DOCKERFILE="${OS}/Dockerfile"
 # When using ubuntu - 22.04, start from Ubuntu docker image, instead of nvidia/cuda docker image.
 if [[ "$image" == *cuda* && "$UBUNTU_VERSION" != "22.04" ]]; then
   DOCKERFILE="${OS}-cuda/Dockerfile"
-elif [ "$IS_ARC" = "true" ]; then
-  DOCKERFILE="${OS}-arc/Dockerfile"
-  set -- "${@:1:2}" "${@:4}"
+#elif [ "$IS_ARC" = "true" ]; then
+#  DOCKERFILE="${OS}-arc/Dockerfile"
 elif [[ "$image" == *rocm* ]]; then
   DOCKERFILE="${OS}-rocm/Dockerfile"
 elif [[ "$image" == *xpu* ]]; then
@@ -390,6 +389,7 @@ DOCKER_BUILDKIT=1 docker build \
        --build-arg "INDUCTOR_BENCHMARKS=${INDUCTOR_BENCHMARKS}" \
        --build-arg "EXECUTORCH=${EXECUTORCH}" \
        --build-arg "BASEKIT_VERSION=${BASEKIT_VERSION}" \
+       --build-arg "IS_ARC=${IS_ARC}" \
        -f $(dirname ${DOCKERFILE})/Dockerfile \
        -t "$tmp_tag" \
        "$@" \
