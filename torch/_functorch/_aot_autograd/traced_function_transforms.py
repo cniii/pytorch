@@ -23,7 +23,6 @@ from torch import Tensor
 from torch._decomp.decompositions_for_rng import PhiloxStateTracker
 from torch._guards import detect_fake_mode
 from torch._prims_common import CUDARngStateHelper
-from torch._subclasses.functional_tensor import FunctionalTensorMode
 from torch.fx.experimental.symbolic_shapes import definitely_false, sym_eq
 from torch.nn.utils import stateless
 
@@ -350,11 +349,27 @@ def create_functionalized_fn(
         disable_above = torch._C._ExcludeDispatchKeyGuard(
             torch._C.DispatchKeySet(torch._C.DispatchKey.Functionalize)
         )
-        with disable_above, FunctionalTensorMode(aot_config.pre_dispatch):
+
+        with disable_above:
             # Wrap inputs into functional wrappers
             f_args = pytree.tree_map(to_fun, args)
+
+            # Populate the current FunctionalTensorMode with the tokens per
+            # operator
+            tokens = f_args[: len(meta.tokens)]
+            f_args = f_args[len(meta.tokens) :]
+            functional_tensor_mode = torch._C._get_dispatch_mode(
+                torch._C._TorchDispatchModeKey.FUNCTIONAL
+            )
+            assert functional_tensor_mode is not None
+            for i, k in enumerate(meta.tokens.keys()):
+                functional_tensor_mode._tokens[k] = tokens[i]
+
             # Run the joint
             f_outs = fn(*f_args)
+
+            # Return both the tokens and the outputs
+            f_outs = [*functional_tensor_mode._tokens.values(), *f_outs]
 
         if trace_joint:
             # We support a limited amount of mutation of graph inputs during the backward pass.
@@ -469,6 +484,10 @@ def create_functionalized_fn(
     if config.functionalize_rng_ops:
         # Setup the wrapper for functionalization of rng ops
         helper, args = create_functionalized_rng_ops_wrapper(helper, args, trace_joint)
+
+    # Additionally pass in tokens as inputs
+    additional_token_inputs = [torch.tensor([])] * len(meta.tokens)
+    args = [*additional_token_inputs, *args]
 
     return helper, args
 
