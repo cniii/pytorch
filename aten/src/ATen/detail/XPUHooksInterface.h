@@ -43,16 +43,16 @@ struct TORCH_API XPUHooksInterface {
     TORCH_CHECK(false, "Cannot get XPU global device index without ATen_xpu library.");
   }
 
-  virtual Generator getXPUGenerator(C10_UNUSED DeviceIndex device_index = -1) const {
-    TORCH_CHECK(false, "Cannot get XPU generator without Intel Extension for Pytorch. ", XPU_HELP);
-  }
-
   virtual const Generator& getDefaultXPUGenerator(C10_UNUSED DeviceIndex device_index = -1) const {
     TORCH_CHECK(false, "Cannot get default XPU generator without Intel Extension for Pytorch. ", XPU_HELP);
   }
 
   virtual int getNumGPUs() const {
     return 0;
+  }
+
+  virtual DeviceIndex current_device() const {
+    return -1;
   }
 
   virtual Device getDeviceFromPtr(void* /*data*/) const {
